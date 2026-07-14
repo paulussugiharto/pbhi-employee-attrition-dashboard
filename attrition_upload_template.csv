@@ -1,0 +1,6 @@
+EmployeeNumber,Age,BusinessTravel,DailyRate,DistanceFromHome,Education,EducationField,EnvironmentSatisfaction,Gender,JobInvolvement,JobLevel,JobRole,JobSatisfaction,MaritalStatus,MonthlyIncome,MonthlyRate,NumCompaniesWorked,OverTime,PerformanceRating,RelationshipSatisfaction,StockOptionLevel,TotalWorkingYears,TrainingTimesLastYear,WorkLifeBalance,YearsAtCompany,YearsInCurrentRole,YearsSinceLastPromotion,YearsWithCurrManager
+10001,47,Travel_Rarely,1225,2,4,Life Sciences,2,Female,4,4,Manager,2,Divorced,15972,21086,6,No,3,3,3,29,2,3,3,2,1,2
+10002,22,Travel_Rarely,594,2,1,Technical Degree,3,Male,3,1,Laboratory Technician,4,Married,2523,19299,0,No,3,3,1,3,2,3,2,1,2,1
+10003,46,Travel_Rarely,406,3,1,Marketing,1,Male,3,4,Manager,3,Married,17465,15596,3,No,3,4,1,23,3,3,12,9,4,9
+10004,25,Travel_Rarely,622,13,1,Medical,2,Male,3,1,Sales Representative,3,Married,2096,26376,1,No,3,3,0,7,1,3,7,4,0,6
+10005,43,Travel_Frequently,1001,9,5,Medical,4,Male,3,2,Laboratory Technician,3,Divorced,5679,19627,3,Yes,3,2,1,10,3,3,8,7,4,7
