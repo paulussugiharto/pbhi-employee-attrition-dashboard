@@ -1,10 +1,10 @@
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-import csv
 import hashlib
 import json
 
+import csv
 import joblib
 import numpy as np
 import pandas as pd
@@ -30,9 +30,21 @@ st.set_page_config(
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "attrition_model_bundle.joblib"
-TEMPLATE_PATH = BASE_DIR / "attrition_upload_template.csv"
-METADATA_PATH = BASE_DIR / "model_metadata.json"
+
+MODEL_PATH = (
+    BASE_DIR
+    / "attrition_model_bundle.joblib"
+)
+
+TEMPLATE_PATH = (
+    BASE_DIR
+    / "attrition_upload_template.csv"
+)
+
+METADATA_PATH = (
+    BASE_DIR
+    / "model_metadata.json"
+)
 
 
 # ============================================================
@@ -41,40 +53,57 @@ METADATA_PATH = BASE_DIR / "model_metadata.json"
 
 @st.cache_resource
 def load_bundle():
-    return joblib.load(MODEL_PATH)
+
+    return joblib.load(
+        MODEL_PATH
+    )
 
 
 @st.cache_data
 def load_template():
-    return pd.read_csv(TEMPLATE_PATH)
+
+    return pd.read_csv(
+        TEMPLATE_PATH
+    )
 
 
 @st.cache_data
 def load_metadata():
+
     if not METADATA_PATH.exists():
+
         return {}
 
     with open(
         METADATA_PATH,
         "r",
         encoding="utf-8",
-    ) as file:
-        return json.load(file)
+    ) as metadata_file:
+
+        return json.load(
+            metadata_file
+        )
 
 
 try:
+
     bundle = load_bundle()
-    template_df = load_template()
+
+    template_df = (
+        load_template()
+    )
 
     metadata = {
         **bundle.get(
             "metadata",
             {},
         ),
+
         **load_metadata(),
     }
 
 except Exception as error:
+
     st.error(
         "Model, template, atau metadata gagal dimuat."
     )
@@ -85,6 +114,10 @@ except Exception as error:
 
     st.stop()
 
+
+# ============================================================
+# MODEL INFORMATION
+# ============================================================
 
 pipeline = bundle[
     "pipeline"
@@ -98,6 +131,7 @@ model_name = metadata.get(
 selected_features = list(
     bundle.get(
         "selected_features",
+
         metadata.get(
             "selected_features",
             [],
@@ -108,6 +142,7 @@ selected_features = list(
 required_columns = list(
     bundle.get(
         "raw_required_columns",
+
         metadata.get(
             "raw_required_columns",
             [],
@@ -118,6 +153,7 @@ required_columns = list(
 prediction_threshold = float(
     metadata.get(
         "prediction_threshold",
+
         bundle.get(
             "prediction_threshold",
             0.18,
@@ -155,7 +191,10 @@ DEFAULT_STATE = {
 }
 
 
-for key, default_value in DEFAULT_STATE.items():
+for (
+    key,
+    default_value,
+) in DEFAULT_STATE.items():
 
     if key not in st.session_state:
 
@@ -165,12 +204,12 @@ for key, default_value in DEFAULT_STATE.items():
 
 
 # ============================================================
-# DATA VALIDATION AND PREDICTION
+# DATA QUALITY
 # ============================================================
 
 def data_quality(
-    dataframe: pd.DataFrame,
-) -> dict:
+    dataframe,
+):
 
     normalized_columns = (
         dataframe.columns
@@ -181,12 +220,16 @@ def data_quality(
     missing_required = [
         column
         for column in required_columns
-        if column not in normalized_columns
+        if column
+        not in normalized_columns
     ]
 
     duplicate_ids = 0
 
-    if "EmployeeNumber" in dataframe.columns:
+    if (
+        "EmployeeNumber"
+        in dataframe.columns
+    ):
 
         duplicate_ids = int(
             dataframe[
@@ -206,11 +249,19 @@ def data_quality(
             ),
 
         "required_available":
-            len(required_columns)
-            - len(missing_required),
+            (
+                len(
+                    required_columns
+                )
+                - len(
+                    missing_required
+                )
+            ),
 
         "required_total":
-            len(required_columns),
+            len(
+                required_columns
+            ),
 
         "missing_required":
             missing_required,
@@ -228,199 +279,13 @@ def data_quality(
     }
 
 
-def validate_raw_csv(
-    file_bytes: bytes,
-) -> None:
-
-    if not file_bytes:
-
-        raise ValueError(
-            "File CSV kosong."
-        )
-
-    try:
-
-        decoded_file = (
-            file_bytes.decode(
-                "utf-8-sig"
-            )
-        )
-
-    except UnicodeDecodeError as error:
-
-        raise ValueError(
-            "File tidak menggunakan encoding UTF-8 "
-            "atau format file tidak valid."
-        ) from error
-
-    file_lines = (
-        decoded_file
-        .splitlines()
-    )
-
-    if not file_lines:
-
-        raise ValueError(
-            "File CSV tidak memiliki header."
-        )
-
-    raw_columns = [
-        str(column).strip()
-
-        for column in next(
-            csv.reader(
-                [
-                    file_lines[0]
-                ]
-            )
-        )
-    ]
-
-    if not raw_columns:
-
-        raise ValueError(
-            "File CSV tidak memiliki nama kolom."
-        )
-
-    empty_positions = [
-        index + 1
-
-        for index, column
-        in enumerate(
-            raw_columns
-        )
-
-        if not column
-    ]
-
-    if empty_positions:
-
-        raise ValueError(
-            "Terdapat nama kolom kosong pada posisi:\n"
-            + "\n".join(
-                map(
-                    str,
-                    empty_positions,
-                )
-            )
-        )
-
-    duplicate_columns = sorted(
-        {
-            column
-
-            for column
-            in raw_columns
-
-            if raw_columns.count(
-                column
-            ) > 1
-        }
-    )
-
-    if duplicate_columns:
-
-        raise ValueError(
-            "Nama kolom duplikat ditemukan:\n"
-            + "\n".join(
-                duplicate_columns
-            )
-        )
-
-
-def validate_employee_ids(
-    dataframe: pd.DataFrame,
-) -> None:
-
-    if (
-        "EmployeeNumber"
-        not in dataframe.columns
-    ):
-
-        return
-
-    employee_ids = (
-        dataframe[
-            "EmployeeNumber"
-        ]
-        .astype(
-            "string"
-        )
-        .str.strip()
-    )
-
-    missing_mask = (
-        employee_ids.isna()
-        | employee_ids.eq("")
-    )
-
-    if missing_mask.any():
-
-        missing_rows = (
-            dataframe.index[
-                missing_mask
-            ]
-            + 2
-        ).tolist()
-
-        raise ValueError(
-            "Employee ID kosong ditemukan "
-            "pada baris CSV:\n"
-            + "\n".join(
-                map(
-                    str,
-                    missing_rows,
-                )
-            )
-        )
-
-    duplicate_mask = (
-        employee_ids
-        .duplicated(
-            keep=False
-        )
-    )
-
-    if duplicate_mask.any():
-
-        details = []
-
-        duplicate_employee_ids = (
-            employee_ids[
-                duplicate_mask
-            ]
-            .dropna()
-            .unique()
-        )
-
-        for employee_id in duplicate_employee_ids:
-
-            rows = (
-                dataframe.index[
-                    employee_ids.eq(
-                        employee_id
-                    )
-                ]
-                + 2
-            ).tolist()
-
-            details.append(
-                f"{employee_id} "
-                f"(baris: "
-                f"{', '.join(map(str, rows))})"
-            )
-
-        raise ValueError(
-            "Employee ID duplikat ditemukan:\n"
-            + "\n".join(
-                details
-            )
-        )
-
+# ============================================================
+# PREPROCESSING AND PREDICTION
+# ============================================================
 
 def prepare_and_predict(
-    uploaded_df: pd.DataFrame,
-) -> pd.DataFrame:
+    uploaded_df,
+):
 
     if uploaded_df.empty:
 
@@ -457,10 +322,8 @@ def prepare_and_predict(
 
     missing_columns = [
         column
-
         for column
         in required_columns
-
         if column
         not in data.columns
     ]
@@ -504,7 +367,7 @@ def prepare_and_predict(
                 errors="coerce",
             )
 
-            invalid_mask = (
+            invalid_values = (
                 data[
                     column
                 ]
@@ -514,7 +377,7 @@ def prepare_and_predict(
                 .notna()
             )
 
-            if invalid_mask.any():
+            if invalid_values.any():
 
                 invalid_numeric.append(
                     column
@@ -545,10 +408,8 @@ def prepare_and_predict(
 
     missing_values = [
         column
-
         for column
         in required_columns
-
         if data[
             column
         ].isna().any()
@@ -620,10 +481,8 @@ def prepare_and_predict(
 
     missing_features = [
         feature
-
         for feature
         in selected_features
-
         if feature
         not in data.columns
     ]
@@ -637,7 +496,7 @@ def prepare_and_predict(
             )
         )
 
-    prediction_data = (
+    X_prediction = (
         data[
             selected_features
         ]
@@ -647,54 +506,60 @@ def prepare_and_predict(
     probability = (
         pipeline
         .predict_proba(
-            prediction_data
+            X_prediction
         )[:, 1]
     )
 
-    predicted_attrition = np.where(
-        probability
-        >= prediction_threshold,
+    predicted_attrition = (
+        np.where(
+            probability
+            >= prediction_threshold,
 
-        "Yes",
-        "No",
+            "Yes",
+            "No",
+        )
     )
 
-    risk_level = np.select(
-        [
-            probability
-            < low_medium_cutoff,
+    risk_level = (
+        np.select(
+            [
+                probability
+                < low_medium_cutoff,
 
-            probability
-            < medium_high_cutoff,
-        ],
+                probability
+                < medium_high_cutoff,
+            ],
 
-        [
-            "Low Risk",
-            "Medium Risk",
-        ],
+            [
+                "Low Risk",
+                "Medium Risk",
+            ],
 
-        default=(
-            "High Risk"
-        ),
+            default=(
+                "High Risk"
+            ),
+        )
     )
 
-    recommended_action = np.select(
-        [
-            risk_level
-            == "High Risk",
+    recommended_action = (
+        np.select(
+            [
+                risk_level
+                == "High Risk",
 
-            risk_level
-            == "Medium Risk",
-        ],
+                risk_level
+                == "Medium Risk",
+            ],
 
-        [
-            "Prioritize HR review",
-            "Monitor and follow up",
-        ],
+            [
+                "Prioritize HR review",
+                "Monitor and follow up",
+            ],
 
-        default=(
-            "Standard monitoring"
-        ),
+            default=(
+                "Standard monitoring"
+            ),
+        )
     )
 
     results = (
@@ -716,7 +581,9 @@ def prepare_and_predict(
             "EmployeeNumber"
         ] = np.arange(
             1,
-            len(results) + 1,
+            len(
+                results
+            ) + 1,
         )
 
     results[
@@ -768,7 +635,9 @@ def prepare_and_predict(
         "Priority_Rank",
         range(
             1,
-            len(results) + 1,
+            len(
+                results
+            ) + 1,
         ),
     )
 
@@ -776,12 +645,12 @@ def prepare_and_predict(
 
 
 # ============================================================
-# DATA SUMMARIES
+# SUMMARY
 # ============================================================
 
 def get_summary(
-    results: pd.DataFrame,
-) -> dict:
+    results,
+):
 
     total = len(
         results
@@ -828,7 +697,8 @@ def get_summary(
             low,
 
         "monitoring":
-            high + medium,
+            high
+            + medium,
 
         "average":
             float(
@@ -840,12 +710,16 @@ def get_summary(
     }
 
 
+# ============================================================
+# FILTERING
+# ============================================================
+
 def filter_results(
-    results: pd.DataFrame,
-    job_level: str,
-    job_role: str,
-    overtime: str,
-) -> pd.DataFrame:
+    results,
+    job_level,
+    job_role,
+    overtime,
+):
 
     filtered = (
         results.copy()
@@ -889,139 +763,16 @@ def filter_results(
     return filtered
 
 
-def risk_distribution(
-    results: pd.DataFrame,
-) -> pd.DataFrame:
-
-    return (
-        results[
-            "Risk_Level"
-        ]
-        .value_counts()
-        .reindex(
-            [
-                "Low Risk",
-                "Medium Risk",
-                "High Risk",
-            ],
-            fill_value=0,
-        )
-        .rename_axis(
-            "Risk Level"
-        )
-        .reset_index(
-            name="Employees"
-        )
-    )
-
-
-def job_role_summary(
-    results: pd.DataFrame,
-) -> pd.DataFrame:
-
-    grouped = (
-        results
-        .groupby(
-            "JobRole"
-        )
-        .agg(
-            Employees=(
-                "EmployeeNumber",
-                "size",
-            ),
-
-            High_Risk_Employees=(
-                "Risk_Level",
-
-                lambda values:
-                    (
-                        values
-                        == "High Risk"
-                    ).sum(),
-            ),
-
-            Average_Risk=(
-                "Attrition_Probability",
-                "mean",
-            ),
-        )
-        .reset_index()
-    )
-
-    grouped[
-        "High Risk Rate"
-    ] = (
-        grouped[
-            "High_Risk_Employees"
-        ]
-        / grouped[
-            "Employees"
-        ]
-        * 100
-    )
-
-    grouped[
-        "Average Risk Score"
-    ] = (
-        grouped[
-            "Average_Risk"
-        ]
-        * 100
-    )
-
-    return grouped
-
-
-def job_level_summary(
-    results: pd.DataFrame,
-) -> pd.DataFrame:
-
-    grouped = (
-        results
-        .groupby(
-            "JobLevel"
-        )
-        .agg(
-            Employees=(
-                "EmployeeNumber",
-                "size",
-            ),
-
-            Average_Risk=(
-                "Attrition_Probability",
-                "mean",
-            ),
-        )
-        .reset_index()
-    )
-
-    grouped[
-        "Average Risk Score"
-    ] = (
-        grouped[
-            "Average_Risk"
-        ]
-        * 100
-    )
-
-    return (
-        grouped
-        .sort_values(
-            "JobLevel"
-        )
-    )
-
-
 # ============================================================
 # UI HELPERS
 # ============================================================
 
 def metric_card(
-    label: str,
-    value: str,
-    note: str,
-    accent: str,
-    icon: str,
+    label,
+    value,
+    note,
+    accent,
+    icon,
 ):
 
     st.html(
@@ -1054,9 +805,9 @@ def metric_card(
 
 
 def prediction_table(
-    results: pd.DataFrame,
-    limit: int | None = None,
-    height: int | None = None,
+    results,
+    limit=None,
+    height=None,
 ):
 
     if limit:
@@ -1108,10 +859,8 @@ def prediction_table(
 
     columns = [
         column
-
         for column
         in columns
-
         if column
         in table.columns
     ]
@@ -1136,6 +885,7 @@ def prediction_table(
         ),
 
         column_config={
+
             "Priority_Rank":
                 st.column_config.NumberColumn(
                     "Priority",
@@ -1161,8 +911,11 @@ def prediction_table(
             "Probability_Percent":
                 st.column_config.ProgressColumn(
                     "Risk Score",
+
                     min_value=0.0,
+
                     max_value=100.0,
+
                     format="%.2f%%",
                 ),
 
@@ -1185,16 +938,18 @@ def prediction_table(
 
 
 def download_button(
-    dataframe: pd.DataFrame,
-    filename: str,
-    label: str = "⬇️ Download Results",
+    results,
+    filename,
+    label=(
+        "⬇️ Download Results"
+    ),
 ):
 
     st.download_button(
         label,
 
         data=(
-            dataframe
+            results
             .to_csv(
                 index=False
             )
@@ -1215,7 +970,7 @@ def download_button(
 
 def clean_plot(
     figure,
-    height: int,
+    height,
 ):
 
     figure.update_layout(
@@ -1238,7 +993,7 @@ def clean_plot(
 
         font=dict(
             family="Arial",
-            color="#526178",
+            color="#24324A",
         ),
 
         legend_title_text="",
@@ -1246,12 +1001,553 @@ def clean_plot(
 
 
 # ============================================================
-# RISK PROFILE SIGNALS
+# UPLOAD
+# ============================================================
+
+def upload_component():
+
+    uploaded_file = (
+        st.file_uploader(
+            "Upload employee CSV",
+
+            type=[
+                "csv"
+            ],
+
+            label_visibility=(
+                "collapsed"
+            ),
+
+            key=(
+                "employee_file_uploader"
+            ),
+        )
+    )
+
+    st.download_button(
+        "⬇️ Download CSV Template",
+
+        data=(
+            template_df
+            .to_csv(
+                index=False
+            )
+            .encode(
+                "utf-8-sig"
+            )
+        ),
+
+        file_name=(
+            "attrition_upload_template.csv"
+        ),
+
+        mime="text/csv",
+
+        use_container_width=True,
+    )
+
+    if uploaded_file is None:
+
+        st.info(
+            "Download template, isi data karyawan, "
+            "lalu upload kembali."
+        )
+
+        return
+
+    try:
+
+        # ====================================================
+        # READ FILE
+        # ====================================================
+
+        file_bytes = (
+            uploaded_file
+            .getvalue()
+        )
+
+        if not file_bytes:
+
+            raise ValueError(
+                "File CSV kosong."
+            )
+
+        current_hash = (
+            hashlib.md5(
+                file_bytes
+            )
+            .hexdigest()
+        )
+
+        # ====================================================
+        # VALIDATE RAW CSV HEADER
+        # Harus dilakukan sebelum pd.read_csv(),
+        # karena pandas dapat mengganti nama kolom duplikat.
+        # ====================================================
+
+        try:
+
+            decoded_file = (
+                file_bytes
+                .decode(
+                    "utf-8-sig"
+                )
+            )
+
+        except UnicodeDecodeError:
+
+            raise ValueError(
+                "File tidak menggunakan encoding UTF-8 "
+                "atau format file tidak valid."
+            )
+
+        file_lines = (
+            decoded_file
+            .splitlines()
+        )
+
+        if not file_lines:
+
+            raise ValueError(
+                "File CSV tidak memiliki header."
+            )
+
+        raw_columns = next(
+            csv.reader(
+                [
+                    file_lines[0]
+                ]
+            )
+        )
+
+        raw_columns = [
+            str(column).strip()
+            for column
+            in raw_columns
+        ]
+
+        if not raw_columns:
+
+            raise ValueError(
+                "File CSV tidak memiliki nama kolom."
+            )
+
+        empty_column_names = [
+            index + 1
+            for index, column
+            in enumerate(
+                raw_columns
+            )
+            if not column
+        ]
+
+        if empty_column_names:
+
+            raise ValueError(
+                "Terdapat nama kolom kosong pada posisi:\n"
+                + "\n".join(
+                    str(position)
+                    for position
+                    in empty_column_names
+                )
+            )
+
+        duplicate_columns = sorted(
+            {
+                column
+                for column
+                in raw_columns
+                if raw_columns.count(
+                    column
+                ) > 1
+            }
+        )
+
+        if duplicate_columns:
+
+            raise ValueError(
+                "Nama kolom duplikat ditemukan:\n"
+                + "\n".join(
+                    duplicate_columns
+                )
+            )
+
+        # ====================================================
+        # READ CSV WITH PANDAS
+        # ====================================================
+
+        uploaded_df = (
+            pd.read_csv(
+                BytesIO(
+                    file_bytes
+                )
+            )
+        )
+
+        uploaded_df.columns = (
+            uploaded_df.columns
+            .astype(str)
+            .str.strip()
+        )
+
+        if uploaded_df.empty:
+
+            raise ValueError(
+                "File tidak memiliki baris data karyawan."
+            )
+
+        # ====================================================
+        # VALIDATE EMPLOYEE ID
+        # ====================================================
+
+        if (
+            "EmployeeNumber"
+            in uploaded_df.columns
+        ):
+
+            employee_ids = (
+                uploaded_df[
+                    "EmployeeNumber"
+                ]
+                .astype(
+                    "string"
+                )
+                .str.strip()
+            )
+
+            missing_employee_id = (
+                employee_ids
+                .isna()
+
+                | employee_ids
+                .eq("")
+            )
+
+            if missing_employee_id.any():
+
+                missing_rows = (
+                    uploaded_df.index[
+                        missing_employee_id
+                    ]
+                    + 2
+                ).tolist()
+
+                raise ValueError(
+                    "Employee ID kosong ditemukan "
+                    "pada baris CSV:\n"
+                    + "\n".join(
+                        str(row)
+                        for row
+                        in missing_rows
+                    )
+                )
+
+            duplicate_employee_mask = (
+                employee_ids
+                .duplicated(
+                    keep=False
+                )
+            )
+
+            if duplicate_employee_mask.any():
+
+                duplicate_employee_ids = (
+                    employee_ids[
+                        duplicate_employee_mask
+                    ]
+                    .dropna()
+                    .unique()
+                    .tolist()
+                )
+
+                duplicate_details = []
+
+                for employee_id in (
+                    duplicate_employee_ids
+                ):
+
+                    duplicate_rows = (
+                        uploaded_df.index[
+                            employee_ids
+                            .eq(
+                                employee_id
+                            )
+                        ]
+                        + 2
+                    ).tolist()
+
+                    duplicate_details.append(
+                        f"{employee_id} "
+                        f"(baris: "
+                        f"{', '.join(map(str, duplicate_rows))})"
+                    )
+
+                raise ValueError(
+                    "Employee ID duplikat ditemukan:\n"
+                    + "\n".join(
+                        duplicate_details
+                    )
+                )
+
+        # ====================================================
+        # PROCESS NEW FILE
+        # ====================================================
+
+        if (
+            current_hash
+            != st.session_state[
+                "file_hash"
+            ]
+        ):
+
+            with st.spinner(
+                "Model sedang memproses data karyawan..."
+            ):
+
+                results = (
+                    prepare_and_predict(
+                        uploaded_df
+                    )
+                )
+
+            st.session_state[
+                "results"
+            ] = results
+
+            st.session_state[
+                "uploaded_data"
+            ] = uploaded_df
+
+            st.session_state[
+                "file_hash"
+            ] = current_hash
+
+            st.session_state[
+                "filename"
+            ] = uploaded_file.name
+
+            st.session_state[
+                "processed_at"
+            ] = (
+                datetime.now()
+                .strftime(
+                    "%d %b %Y, %H:%M"
+                )
+            )
+
+            st.session_state[
+                "quality"
+            ] = (
+                data_quality(
+                    uploaded_df
+                )
+            )
+
+            st.rerun()
+
+        # ====================================================
+        # SUCCESS INFORMATION
+        # ====================================================
+
+        st.success(
+            f"File aktif: "
+            f"{uploaded_file.name} — "
+            f"{len(uploaded_df):,} karyawan."
+        )
+
+        with st.expander(
+            "Preview Uploaded Data"
+        ):
+
+            st.dataframe(
+                uploaded_df
+                .head(10),
+
+                use_container_width=True,
+
+                hide_index=True,
+            )
+
+    except Exception as error:
+
+        for (
+            key,
+            default_value,
+        ) in DEFAULT_STATE.items():
+
+            st.session_state[
+                key
+            ] = default_value
+
+        st.error(
+            "File tidak dapat diproses."
+        )
+
+        st.code(
+            str(error)
+        )
+
+
+# ============================================================
+# CHART DATA
+# ============================================================
+
+def risk_distribution(
+    results,
+):
+
+    return (
+        results[
+            "Risk_Level"
+        ]
+        .value_counts()
+        .reindex(
+            [
+                "Low Risk",
+                "Medium Risk",
+                "High Risk",
+            ],
+
+            fill_value=0,
+        )
+        .rename_axis(
+            "Risk Level"
+        )
+        .reset_index(
+            name="Employees"
+        )
+    )
+
+
+def job_role_summary(
+    results,
+):
+
+    grouped = (
+        results
+        .groupby(
+            "JobRole"
+        )
+        .agg(
+
+            Employees=(
+                "EmployeeNumber",
+                "size",
+            ),
+
+            High_Risk_Employees=(
+                "Risk_Level",
+
+                lambda values: (
+                    values
+                    == "High Risk"
+                ).sum(),
+            ),
+
+            Average_Risk=(
+                "Attrition_Probability",
+                "mean",
+            ),
+        )
+        .reset_index()
+    )
+
+    grouped[
+        "High Risk Rate"
+    ] = (
+        grouped[
+            "High_Risk_Employees"
+        ]
+        / grouped[
+            "Employees"
+        ]
+        * 100
+    )
+
+    grouped[
+        "Average Risk Score"
+    ] = (
+        grouped[
+            "Average_Risk"
+        ]
+        * 100
+    )
+
+    grouped[
+        "Role Label"
+    ] = (
+        grouped[
+            "JobRole"
+        ]
+        + " (n="
+        + grouped[
+            "Employees"
+        ]
+        .astype(str)
+        + ")"
+    )
+
+    return (
+        grouped
+        .sort_values(
+            [
+                "High Risk Rate",
+                "Average Risk Score",
+            ],
+
+            ascending=False,
+        )
+    )
+
+
+def job_level_summary(
+    results,
+):
+
+    grouped = (
+        results
+        .groupby(
+            "JobLevel"
+        )
+        .agg(
+
+            Employees=(
+                "EmployeeNumber",
+                "size",
+            ),
+
+            Average_Risk=(
+                "Attrition_Probability",
+                "mean",
+            ),
+        )
+        .reset_index()
+    )
+
+    grouped[
+        "Average Risk Score"
+    ] = (
+        grouped[
+            "Average_Risk"
+        ]
+        * 100
+    )
+
+    return (
+        grouped
+        .sort_values(
+            "JobLevel"
+        )
+    )
+
+
+# ============================================================
+# RISK SIGNALS
 # ============================================================
 
 def risk_signal_data(
-    results: pd.DataFrame,
-) -> pd.DataFrame:
+    results,
+):
 
     high_risk = (
         results[
@@ -1288,6 +1584,7 @@ def risk_signal_data(
     )
 
     definitions = [
+
         (
             "OverTime = Yes",
 
@@ -1427,7 +1724,7 @@ def risk_signal_data(
 
 
 def signal_panel(
-    results: pd.DataFrame,
+    results,
 ):
 
     signal_data = (
@@ -1441,23 +1738,17 @@ def signal_panel(
         row,
     ) in signal_data.iterrows():
 
-        if (
-            row[
-                "Rate"
-            ]
-            >= 60
-        ):
+        if row[
+            "Rate"
+        ] >= 60:
 
             css_class = (
                 "signal-high"
             )
 
-        elif (
-            row[
-                "Rate"
-            ]
-            >= 30
-        ):
+        elif row[
+            "Rate"
+        ] >= 30:
 
             css_class = (
                 "signal-medium"
@@ -1512,19 +1803,23 @@ def signal_panel(
 # ============================================================
 
 def employee_detail(
-    results: pd.DataFrame,
+    results,
 ):
 
-    selected_id = st.selectbox(
-        "Select Employee ID",
+    selected_id = (
+        st.selectbox(
+            "Select Employee ID",
 
-        results[
-            "EmployeeNumber"
-        ]
-        .astype(str)
-        .tolist(),
+            results[
+                "EmployeeNumber"
+            ]
+            .astype(str)
+            .tolist(),
 
-        key="employee_detail_id",
+            key=(
+                "employee_detail_id"
+            ),
+        )
     )
 
     employee = (
@@ -1540,20 +1835,19 @@ def employee_detail(
         .iloc[0]
     )
 
-    (
-        detail_1,
-        detail_2,
-        detail_3,
-        detail_4,
-    ) = st.columns(4)
+    detail_1, detail_2, detail_3, detail_4 = (
+        st.columns(4)
+    )
 
     detail_1.metric(
         "Risk Score",
+
         f"{employee['Probability_Percent']:.2f}%",
     )
 
     detail_2.metric(
         "Risk Level",
+
         str(
             employee[
                 "Risk_Level"
@@ -1563,6 +1857,7 @@ def employee_detail(
 
     detail_3.metric(
         "Predicted Attrition",
+
         str(
             employee[
                 "Predicted_Attrition"
@@ -1572,6 +1867,7 @@ def employee_detail(
 
     detail_4.metric(
         "Priority Rank",
+
         f"#{int(employee['Priority_Rank'])}",
     )
 
@@ -1625,183 +1921,6 @@ def employee_detail(
 
 
 # ============================================================
-# UPLOAD COMPONENT
-# ============================================================
-
-def upload_component():
-
-    uploaded_file = st.file_uploader(
-        "Upload employee CSV",
-
-        type=[
-            "csv"
-        ],
-
-        label_visibility="collapsed",
-
-        key="employee_file_uploader",
-    )
-
-    st.download_button(
-        "⬇️ Download CSV Template",
-
-        data=(
-            template_df
-            .to_csv(
-                index=False
-            )
-            .encode(
-                "utf-8-sig"
-            )
-        ),
-
-        file_name="attrition_upload_template.csv",
-
-        mime="text/csv",
-
-        use_container_width=True,
-    )
-
-    if uploaded_file is None:
-
-        st.info(
-            "Download template, isi data karyawan, "
-            "lalu upload kembali."
-        )
-
-        return
-
-    try:
-
-        file_bytes = (
-            uploaded_file
-            .getvalue()
-        )
-
-        validate_raw_csv(
-            file_bytes
-        )
-
-        current_hash = (
-            hashlib.md5(
-                file_bytes
-            )
-            .hexdigest()
-        )
-
-        uploaded_df = pd.read_csv(
-            BytesIO(
-                file_bytes
-            )
-        )
-
-        uploaded_df.columns = (
-            uploaded_df.columns
-            .astype(str)
-            .str.strip()
-        )
-
-        if uploaded_df.empty:
-
-            raise ValueError(
-                "File tidak memiliki baris data karyawan."
-            )
-
-        validate_employee_ids(
-            uploaded_df
-        )
-
-        if (
-            current_hash
-            != st.session_state[
-                "file_hash"
-            ]
-        ):
-
-            with st.spinner(
-                "Model sedang memproses data karyawan..."
-            ):
-
-                results = (
-                    prepare_and_predict(
-                        uploaded_df
-                    )
-                )
-
-            st.session_state[
-                "results"
-            ] = results
-
-            st.session_state[
-                "uploaded_data"
-            ] = uploaded_df
-
-            st.session_state[
-                "file_hash"
-            ] = current_hash
-
-            st.session_state[
-                "filename"
-            ] = uploaded_file.name
-
-            st.session_state[
-                "processed_at"
-            ] = (
-                datetime.now()
-                .strftime(
-                    "%d %b %Y, %H:%M"
-                )
-            )
-
-            st.session_state[
-                "quality"
-            ] = data_quality(
-                uploaded_df
-            )
-
-            st.rerun()
-
-        st.success(
-            f"File aktif: "
-            f"{uploaded_file.name} — "
-            f"{len(uploaded_df):,} "
-            f"karyawan."
-        )
-
-        with st.expander(
-            "Preview Uploaded Data"
-        ):
-
-            st.dataframe(
-                uploaded_df
-                .head(10),
-
-                use_container_width=True,
-
-                hide_index=True,
-            )
-
-    except Exception as error:
-
-        for (
-            key,
-            default_value,
-        ) in DEFAULT_STATE.items():
-
-            st.session_state[
-                key
-            ] = default_value
-
-        st.error(
-            "File tidak dapat diproses."
-        )
-
-        st.code(
-            str(error)
-        )
-
-
-# ============================================================
 # CSS
 # ============================================================
 
@@ -1810,22 +1929,28 @@ st.html(
     <style>
 
         :root {
-            --navy:#17324d;
-            --navy2:#234765;
-            --blue:#647fbc;
-            --blue-soft:#e8edf8;
-            --red:#ef6b66;
-            --red-soft:#fde9e7;
-            --orange:#f4ad4e;
-            --orange-soft:#fff1dd;
-            --green:#62b99f;
-            --green-soft:#e3f3ee;
-            --text:#18304b;
-            --muted:#74849a;
-            --border:#e1e8f0;
-            --background:#f7f9fc;
-            --surface:#ffffff;
-        }
+    --navy:#17324d;
+    --navy2:#234765;
+
+    --blue:#647fbc;
+    --blue-soft:#e8edf8;
+
+    --red:#ef6b66;
+    --red-soft:#fde9e7;
+
+    --orange:#f4ad4e;
+    --orange-soft:#fff1dd;
+
+    --green:#62b99f;
+    --green-soft:#e3f3ee;
+
+    --text:#18304b;
+    --muted:#74849a;
+
+    --border:#e1e8f0;
+    --background:#f7f9fc;
+    --surface:#ffffff;
+}
 
         .stApp {
             background:
@@ -1846,6 +1971,7 @@ st.html(
         }
 
         section[data-testid="stSidebar"] {
+
             background:
                 linear-gradient(
                     180deg,
@@ -1858,6 +1984,7 @@ st.html(
         }
 
         section[data-testid="stSidebar"] * {
+
             color:
                 #ffffff;
         }
@@ -1865,6 +1992,7 @@ st.html(
         section[data-testid="stSidebar"]
         div[role="radiogroup"]
         label {
+
             border-radius:
                 9px;
 
@@ -1882,6 +2010,7 @@ st.html(
         section[data-testid="stSidebar"]
         div[role="radiogroup"]
         label:hover {
+
             background:
                 rgba(
                     255,
@@ -1894,6 +2023,7 @@ st.html(
         section[data-testid="stSidebar"]
         div[role="radiogroup"]
         label:has(input:checked) {
+
             background:
                 linear-gradient(
                     135deg,
@@ -1914,6 +2044,7 @@ st.html(
         }
 
         .page-title {
+
             font-size:
                 2rem;
 
@@ -1928,6 +2059,7 @@ st.html(
         }
 
         .page-subtitle {
+
             color:
                 var(--muted);
 
@@ -1938,182 +2070,237 @@ st.html(
         }
 
         .metric-card {
+
             background:
-                var(--surface);
+                #ffffff;
 
             border:
                 1px solid
                 var(--border);
 
             border-radius:
-                18px;
+                14px;
 
             padding:
+                1rem
                 1.05rem;
 
             min-height:
-                132px;
+                124px;
 
-            display:
-                flex;
-
-            align-items:
-                flex-start;
-
-            gap:
-                0.9rem;
+            position:
+                relative;
 
             box-shadow:
                 0
-                8px
-                24px
+                6px
+                20px
                 rgba(
-                    35,
-                    63,
-                    92,
-                    0.055
-                );
-
-            transition:
-                transform
-                0.18s ease,
-                box-shadow
-                0.18s ease;
-        }
-
-        .metric-card:hover {
-            transform:
-                translateY(
-                    -2px
-                );
-
-            box-shadow:
-                0
-                12px
-                30px
-                rgba(
-                    35,
-                    63,
-                    92,
-                    0.09
+                    17,
+                    38,
+                    74,
+                    0.04
                 );
         }
 
-        .metric-icon {
-            width:
-                48px;
+.metric-card {
 
-            height:
-                48px;
+    background:
+        var(--surface);
 
-            min-width:
-                48px;
+    border:
+        1px solid
+        var(--border);
 
-            border-radius:
-                14px;
+    border-radius:
+        18px;
 
-            display:
-                flex;
+    padding:
+        1.05rem;
 
-            align-items:
-                center;
+    min-height:
+        132px;
 
-            justify-content:
-                center;
+    display:
+        flex;
 
-            font-size:
-                1.35rem;
+    align-items:
+        flex-start;
 
-            font-weight:
-                800;
-        }
+    gap:
+        0.9rem;
 
-        .icon-blue {
-            color:
-                #526ca7;
+    box-shadow:
+        0
+        8px
+        24px
+        rgba(
+            35,
+            63,
+            92,
+            0.055
+        );
 
-            background:
-                var(--blue-soft);
-        }
+    transition:
+        transform
+        0.18s ease,
+        box-shadow
+        0.18s ease;
+}
 
-        .icon-red {
-            color:
-                #df5f5a;
 
-            background:
-                var(--red-soft);
-        }
+.metric-card:hover {
 
-        .icon-orange {
-            color:
-                #d99234;
+    transform:
+        translateY(
+            -2px
+        );
 
-            background:
-                var(--orange-soft);
-        }
+    box-shadow:
+        0
+        12px
+        30px
+        rgba(
+            35,
+            63,
+            92,
+            0.09
+        );
+}
 
-        .icon-green {
-            color:
-                #459d83;
 
-            background:
-                var(--green-soft);
-        }
+.metric-icon {
 
-        .metric-content {
-            flex:
-                1;
+    width:
+        48px;
 
-            min-width:
-                0;
-        }
+    height:
+        48px;
 
-        .metric-label {
-            color:
-                #4e6075;
+    min-width:
+        48px;
 
-            font-size:
-                0.82rem;
+    border-radius:
+        14px;
 
-            font-weight:
-                750;
+    display:
+        flex;
 
-            margin-top:
-                0.05rem;
-        }
+    align-items:
+        center;
 
-        .metric-value {
-            color:
-                var(--text);
+    justify-content:
+        center;
 
-            font-size:
-                1.9rem;
+    font-size:
+        1.35rem;
 
-            font-weight:
-                850;
+    font-weight:
+        800;
+}
 
-            line-height:
-                1;
 
-            margin-top:
-                0.72rem;
-        }
+.icon-blue {
 
-        .metric-note {
-            color:
-                var(--muted);
+    color:
+        #526ca7;
 
-            font-size:
-                0.73rem;
+    background:
+        var(--blue-soft);
+}
 
-            margin-top:
-                0.72rem;
 
-            line-height:
-                1.35;
-        }
+.icon-red {
 
+    color:
+        #df5f5a;
+
+    background:
+        var(--red-soft);
+}
+
+
+.icon-orange {
+
+    color:
+        #d99234;
+
+    background:
+        var(--orange-soft);
+}
+
+
+.icon-green {
+
+    color:
+        #459d83;
+
+    background:
+        var(--green-soft);
+}
+
+
+.metric-content {
+
+    flex:
+        1;
+
+    min-width:
+        0;
+}
+
+
+.metric-label {
+
+    color:
+        #4e6075;
+
+    font-size:
+        0.82rem;
+
+    font-weight:
+        750;
+
+    margin-top:
+        0.05rem;
+}
+
+
+.metric-value {
+
+    color:
+        var(--text);
+
+    font-size:
+        1.9rem;
+
+    font-weight:
+        850;
+
+    line-height:
+        1;
+
+    margin-top:
+        0.72rem;
+}
+
+
+.metric-note {
+
+    color:
+        var(--muted);
+
+    font-size:
+        0.73rem;
+
+    margin-top:
+        0.72rem;
+
+    line-height:
+        1.35;
+}
         .sidebar-brand {
+
             display:
                 flex;
 
@@ -2128,6 +2315,7 @@ st.html(
         }
 
         .sidebar-icon {
+
             width:
                 44px;
 
@@ -2168,6 +2356,7 @@ st.html(
         }
 
         .sidebar-status {
+
             border:
                 1px solid
                 rgba(
@@ -2202,6 +2391,7 @@ st.html(
         }
 
         .signal-row {
+
             display:
                 flex;
 
@@ -2221,11 +2411,13 @@ st.html(
         }
 
         .signal-row:last-child {
+
             border-bottom:
                 none;
         }
 
         .signal-icon {
+
             width:
                 34px;
 
@@ -2258,6 +2450,7 @@ st.html(
         }
 
         .signal-main {
+
             flex:
                 1;
         }
@@ -2266,6 +2459,7 @@ st.html(
         .signal-high small,
         .signal-medium small,
         .signal-low small {
+
             display:
                 block;
 
@@ -2277,6 +2471,7 @@ st.html(
         }
 
         .signal-high {
+
             color:
                 var(--red);
 
@@ -2285,6 +2480,7 @@ st.html(
         }
 
         .signal-medium {
+
             color:
                 var(--orange);
 
@@ -2293,6 +2489,7 @@ st.html(
         }
 
         .signal-low {
+
             color:
                 var(--green);
 
@@ -2301,6 +2498,7 @@ st.html(
         }
 
         .intervention {
+
             background:
                 #ffffff;
 
@@ -2330,6 +2528,7 @@ st.html(
         }
 
         .pill {
+
             display:
                 inline-block;
 
@@ -2348,6 +2547,7 @@ st.html(
         }
 
         .pill-high {
+
             color:
                 #b72235;
 
@@ -2356,6 +2556,7 @@ st.html(
         }
 
         .pill-medium {
+
             color:
                 #9b6400;
 
@@ -2364,6 +2565,7 @@ st.html(
         }
 
         .pill-low {
+
             color:
                 #1c7943;
 
@@ -2372,6 +2574,7 @@ st.html(
         }
 
         div[data-testid="stDataFrame"] {
+
             border:
                 1px solid
                 var(--border);
@@ -2383,21 +2586,34 @@ st.html(
                 hidden;
         }
 
+
+        /* ==================================================
+           CLEAR CURRENT DATA BUTTON
+           ================================================== */
+
+        section[data-testid="stSidebar"]
+        div.stButton,
+
         section[data-testid="stSidebar"]
         div[data-testid="stButton"] {
+
             margin-top:
                 0.65rem;
 
             margin-bottom:
-                0.2rem;
+                0.20rem;
         }
 
+
         section[data-testid="stSidebar"]
-        div[data-testid="stButton"]
-        > button,
+        div.stButton > button,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button,
 
         section[data-testid="stSidebar"]
         button[kind="primary"] {
+
             width:
                 100% !important;
 
@@ -2447,12 +2663,16 @@ st.html(
                 0.16s !important;
         }
 
+
         section[data-testid="stSidebar"]
-        div[data-testid="stButton"]
-        > button *,
+        div.stButton > button *,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button *,
 
         section[data-testid="stSidebar"]
         button[kind="primary"] * {
+
             color:
                 #ffffff !important;
 
@@ -2460,18 +2680,25 @@ st.html(
                 #ffffff !important;
         }
 
+
         section[data-testid="stSidebar"]
-        div[data-testid="stButton"]
-        > button:hover,
+        div.stButton > button:hover,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button:hover,
 
         section[data-testid="stSidebar"]
         button[kind="primary"]:hover {
+
             background:
                 linear-gradient(
                     135deg,
                     #e23650,
                     #ff5a7b
                 ) !important;
+
+            color:
+                #ffffff !important;
 
             border-color:
                 rgba(
@@ -2498,12 +2725,77 @@ st.html(
                 ) !important;
         }
 
+
+        section[data-testid="stSidebar"]
+        div.stButton > button:focus,
+
+        section[data-testid="stSidebar"]
+        div.stButton > button:active,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button:focus,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button:active {
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #bd233a,
+                    #e63e63
+                ) !important;
+
+            color:
+                #ffffff !important;
+
+            border-color:
+                #ff9aac !important;
+
+            outline:
+                none !important;
+
+            box-shadow:
+                0
+                0
+                0
+                3px
+                rgba(
+                    239,
+                    71,
+                    111,
+                    0.25
+                ) !important;
+        }
+
+
+        section[data-testid="stSidebar"]
+        div.stButton > button p,
+
+        section[data-testid="stSidebar"]
+        div.stButton > button span,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button p,
+
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button span {
+
+            color:
+                #ffffff !important;
+
+            margin:
+                0 !important;
+        }
+
+
         header[data-testid="stHeader"] {
+
             background:
                 transparent;
         }
 
         div[data-testid="stToolbar"] {
+
             visibility:
                 hidden;
 
@@ -2513,6 +2805,7 @@ st.html(
 
         #MainMenu,
         footer {
+
             visibility:
                 hidden;
         }
@@ -2566,7 +2859,9 @@ with st.sidebar:
             "ℹ️  About",
         ],
 
-        label_visibility="collapsed",
+        label_visibility=(
+            "collapsed"
+        ),
     )
 
     if (
@@ -2612,7 +2907,9 @@ with st.sidebar:
 
             use_container_width=True,
 
-            key="clear_current_data_button",
+            key=(
+                "clear_current_data_button"
+            ),
         ):
 
             for (
@@ -2683,11 +2980,13 @@ if page == "🏠  Overview":
     st.html(
         """
         <div class="page-title">
-            Employee Attrition Early Warning System
+            Employee Attrition
+            Early Warning System
         </div>
 
         <div class="page-subtitle">
-            Monitor risk, understand employee profiles,
+            Monitor risk,
+            understand employee profiles,
             and prioritize appropriate follow-up.
         </div>
         """
@@ -2700,12 +2999,15 @@ if page == "🏠  Overview":
             "membuka dashboard interaktif."
         )
 
-        left, right = st.columns(
-            [
-                1.4,
-                1,
-            ],
-            gap="large",
+        left, right = (
+            st.columns(
+                [
+                    1.4,
+                    1,
+                ],
+
+                gap="large",
+            )
         )
 
         with left:
@@ -2724,11 +3026,15 @@ if page == "🏠  Overview":
 
             st.markdown(
                 """
-                - distribusi Low, Medium, dan High Risk;
-                - Average Risk berdasarkan Job Role;
-                - Average Risk berdasarkan Job Level;
+                - distribusi Low, Medium,
+                  dan High Risk;
+                - High Risk Rate berdasarkan
+                  Job Role;
+                - average risk berdasarkan
+                  Job Level;
                 - Top 10 Priority Employees;
                 - Employee Detail View;
+                - observed High-Risk Profile Signals;
                 - Monitoring Action Queue.
                 """
             )
@@ -2744,10 +3050,12 @@ if page == "🏠  Overview":
                 )
 
                 for value in sorted(
+
                     pd.to_numeric(
                         results[
                             "JobLevel"
                         ],
+
                         errors="coerce",
                     )
                     .dropna()
@@ -2786,49 +3094,59 @@ if page == "🏠  Overview":
             border=True
         ):
 
-            (
-                f1,
-                f2,
-                f3,
-                f4,
-            ) = st.columns(
-                [
-                    1,
-                    1.35,
-                    1,
-                    1,
-                ],
-                gap="large",
+            f1, f2, f3, f4 = (
+                st.columns(
+                    [
+                        1,
+                        1.35,
+                        1,
+                        1,
+                    ],
+
+                    gap="large",
+                )
             )
 
             with f1:
 
-                job_level_filter = st.selectbox(
-                    "Job Level",
+                job_level_filter = (
+                    st.selectbox(
+                        "Job Level",
 
-                    job_levels,
+                        job_levels,
 
-                    key="overview_level",
+                        key=(
+                            "overview_level"
+                        ),
+                    )
                 )
 
             with f2:
 
-                job_role_filter = st.selectbox(
-                    "Job Role",
+                job_role_filter = (
+                    st.selectbox(
+                        "Job Role",
 
-                    job_roles,
+                        job_roles,
 
-                    key="overview_role",
+                        key=(
+                            "overview_role"
+                        ),
+                    )
                 )
 
             with f3:
 
-                overtime_filter = st.selectbox(
-                    "OverTime",
+                overtime_filter = (
+                    st.selectbox(
+                        "OverTime",
 
-                    overtime_values,
+                        overtime_values,
 
-                    key="overview_overtime",
+                        key=(
+                            "overview_overtime"
+                        ),
+                    )
                 )
 
             with f4:
@@ -2844,11 +3162,16 @@ if page == "🏠  Overview":
                     or "Current session"
                 )
 
-        filtered = filter_results(
-            results,
-            job_level_filter,
-            job_role_filter,
-            overtime_filter,
+        filtered = (
+            filter_results(
+                results,
+
+                job_level_filter,
+
+                job_role_filter,
+
+                overtime_filter,
+            )
         )
 
         if filtered.empty:
@@ -2860,16 +3183,15 @@ if page == "🏠  Overview":
 
             st.stop()
 
-        summary = get_summary(
-            filtered
+        summary = (
+            get_summary(
+                filtered
+            )
         )
 
-        (
-            c1,
-            c2,
-            c3,
-            c4,
-        ) = st.columns(4)
+        c1, c2, c3, c4 = (
+            st.columns(4)
+        )
 
         with c1:
 
@@ -2935,17 +3257,16 @@ if page == "🏠  Overview":
 
         st.write("")
 
-        (
-            chart_1,
-            chart_2,
-            chart_3,
-        ) = st.columns(
-            [
-                0.95,
-                1.65,
-                1.05,
-            ],
-            gap="large",
+        chart_1, chart_2, chart_3 = (
+            st.columns(
+                [
+                    0.95,
+                    1.65,
+                    1.05,
+                ],
+
+                gap="large",
+            )
         )
 
         with chart_1:
@@ -2958,20 +3279,28 @@ if page == "🏠  Overview":
                     "Risk Distribution"
                 )
 
-                pie_data = risk_distribution(
-                    filtered
+                pie_data = (
+                    risk_distribution(
+                        filtered
+                    )
                 )
 
                 figure = px.pie(
                     pie_data,
 
-                    names="Risk Level",
+                    names=(
+                        "Risk Level"
+                    ),
 
-                    values="Employees",
+                    values=(
+                        "Employees"
+                    ),
 
                     hole=0.60,
 
-                    color="Risk Level",
+                    color=(
+                        "Risk Level"
+                    ),
 
                     color_discrete_map={
                         "Low Risk":
@@ -2992,7 +3321,7 @@ if page == "🏠  Overview":
 
                     marker=dict(
                         line=dict(
-                            color="#ffffff",
+                            color='#ffffff',
                             width=2,
                         )
                     ),
@@ -3038,30 +3367,14 @@ if page == "🏠  Overview":
                             False,
                     },
                 )
-
         with chart_2:
-
-            with st.container(
-                border=True
-            ):
-
-                st.subheader(
-                    "Risk by Job Role"
-                )
-
-                st.caption(
-                    "Average attrition risk score "
-                    "for each employee role."
-                )
+            with st.container(border=True):
+                st.subheader("Risk by Job Role")
+                st.caption("Average attrition risk score for each employee role.")
 
                 role_data = (
-                    job_role_summary(
-                        filtered
-                    )
-                    .sort_values(
-                        "Average Risk Score",
-                        ascending=True,
-                    )
+                    job_role_summary(filtered)
+                    .sort_values("Average Risk Score", ascending=True)
                     .tail(7)
                     .copy()
                 )
@@ -3080,59 +3393,27 @@ if page == "🏠  Overview":
 
                 figure.add_trace(
                     go.Bar(
-                        x=role_data[
-                            "Average Risk Score"
-                        ],
-
-                        y=role_data[
-                            "JobRole"
-                        ],
-
+                        x=role_data["Average Risk Score"],
+                        y=role_data["JobRole"],
                         orientation="h",
-
                         marker=dict(
-                            color=(
-                                soft_role_colors[
-                                    -len(role_data):
-                                ]
-                            ),
-
-                            line=dict(
-                                width=0
-                            ),
+                            color=soft_role_colors[-len(role_data):],
+                            line=dict(width=0),
                         ),
-
                         text=[
                             f"{value:.1f}%"
-
-                            for value
-                            in role_data[
-                                "Average Risk Score"
-                            ]
+                            for value in role_data["Average Risk Score"]
                         ],
-
                         textposition="outside",
-
                         cliponaxis=False,
-
                         customdata=np.stack(
                             [
-                                role_data[
-                                    "Employees"
-                                ],
-
-                                role_data[
-                                    "High_Risk_Employees"
-                                ],
-
-                                role_data[
-                                    "High Risk Rate"
-                                ],
+                                role_data["Employees"],
+                                role_data["High_Risk_Employees"],
+                                role_data["High Risk Rate"],
                             ],
-
                             axis=-1,
                         ),
-
                         hovertemplate=(
                             "<b>%{y}</b><br>"
                             "Employees: %{customdata[0]:,.0f}<br>"
@@ -3144,95 +3425,42 @@ if page == "🏠  Overview":
                     )
                 )
 
-                max_role_risk = float(
-                    role_data[
-                        "Average Risk Score"
-                    ]
-                    .max()
-                )
-
-                x_max = max(
-                    max_role_risk
-                    * 1.20,
-
-                    1.0,
-                )
+                max_role_risk = float(role_data["Average Risk Score"].max())
 
                 figure.update_layout(
                     height=360,
-
-                    margin=dict(
-                        l=10,
-                        r=45,
-                        t=10,
-                        b=35,
-                    ),
-
-                    paper_bgcolor=(
-                        "rgba(0,0,0,0)"
-                    ),
-
-                    plot_bgcolor=(
-                        "rgba(0,0,0,0)"
-                    ),
-
+                    margin=dict(l=10, r=45, t=10, b=35),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
                     showlegend=False,
-
-                    font=dict(
-                        family="Arial",
-                        color="#526178",
-                        size=12,
-                    ),
-
+                    font=dict(family="Arial", color="#526178", size=12),
                     xaxis=dict(
                         title="Average Risk Score",
-
                         ticksuffix="%",
-
-                        range=[
-                            0,
-                            x_max,
-                        ],
-
+                        range=[0, max_role_risk * 1.20],
                         showgrid=True,
-
                         gridcolor="#edf1f5",
-
                         zeroline=False,
-
                         fixedrange=True,
                     ),
-
                     yaxis=dict(
                         title="",
-
                         showgrid=False,
-
                         fixedrange=True,
-
-                        tickfont=dict(
-                            size=11,
-                            color="#43546a",
-                        ),
+                        tickfont=dict(size=11, color="#43546a"),
                     ),
-
                     bargap=0.42,
                 )
 
                 st.plotly_chart(
                     figure,
-
                     use_container_width=True,
-
-                    config={
-                        "displayModeBar":
-                            False,
-                    },
+                    config={"displayModeBar": False},
                 )
 
                 st.caption(
-                    "Employee counts and High Risk Rate "
-                    "are available when hovering over each bar."
+                    "Employee counts and High Risk Rate are available "
+                    "when hovering over each bar."
                 )
 
         with chart_3:
@@ -3256,11 +3484,17 @@ if page == "🏠  Overview":
 
                     x="JobLevel",
 
-                    y="Average Risk Score",
+                    y=(
+                        "Average Risk Score"
+                    ),
 
-                    text="Average Risk Score",
+                    text=(
+                        "Average Risk Score"
+                    ),
 
-                    color="Average Risk Score",
+                    color=(
+                        "Average Risk Score"
+                    ),
 
                     color_continuous_scale=[
                         "#62b99f",
@@ -3280,15 +3514,21 @@ if page == "🏠  Overview":
                         "%{text:.1f}%"
                     ),
 
-                    textposition="outside",
+                    textposition=(
+                        "outside"
+                    ),
                 )
 
                 figure.update_layout(
                     coloraxis_showscale=False,
 
-                    xaxis_title="Job Level",
+                    xaxis_title=(
+                        "Job Level"
+                    ),
 
-                    yaxis_title="Average Risk Score",
+                    yaxis_title=(
+                        "Average Risk Score"
+                    ),
 
                     xaxis=dict(
                         tickmode="array",
@@ -3301,10 +3541,7 @@ if page == "🏠  Overview":
                         ),
 
                         ticktext=[
-                            str(
-                                value
-                            )
-
+                            str(value)
                             for value
                             in level_data[
                                 "JobLevel"
@@ -3336,31 +3573,52 @@ if page == "🏠  Overview":
                     },
                 )
 
-        # ====================================================
-        # FULL-WIDTH TOP 10 TABLE
-        # Signal panel dihapus dari Overview.
-        # ====================================================
+        table_column, signal_column = (
+            st.columns(
+                [
+                    1.7,
+                    1,
+                ],
 
-        with st.container(
-            border=True
-        ):
-
-            st.subheader(
-                "Top 10 Priority Employees"
+                gap="large",
             )
+        )
 
-            st.caption(
-                "Employees with the highest predicted "
-                "attrition probabilities in the current selection."
-            )
+        with table_column:
 
-            prediction_table(
-                filtered,
+            with st.container(
+                border=True
+            ):
 
-                limit=10,
+                st.subheader(
+                    "Top 10 Priority Employees"
+                )
 
-                height=390,
-            )
+                prediction_table(
+                    filtered,
+
+                    limit=10,
+                )
+
+        with signal_column:
+
+            with st.container(
+                border=True
+            ):
+
+                st.subheader(
+                    "Observed High-Risk Profile Signals"
+                )
+
+                st.caption(
+                    "Descriptive patterns among "
+                    "High Risk employees. "
+                    "These are not causal claims."
+                )
+
+                signal_panel(
+                    filtered
+                )
 
         st.caption(
             f"Low Risk < "
@@ -3406,62 +3664,70 @@ elif page == "👥  Employee List":
 
     else:
 
-        (
-            f1,
-            f2,
-            f3,
-        ) = st.columns(
-            [
-                1.2,
-                1.2,
-                1.3,
-            ]
+        f1, f2, f3 = (
+            st.columns(
+                [
+                    1.2,
+                    1.2,
+                    1.3,
+                ]
+            )
         )
 
         with f1:
 
-            risk_filter = st.multiselect(
-                "Risk Level",
+            risk_filter = (
+                st.multiselect(
+                    "Risk Level",
 
-                [
-                    "High Risk",
-                    "Medium Risk",
-                    "Low Risk",
-                ],
+                    [
+                        "High Risk",
+                        "Medium Risk",
+                        "Low Risk",
+                    ],
 
-                default=[
-                    "High Risk",
-                    "Medium Risk",
-                    "Low Risk",
-                ],
+                    default=[
+                        "High Risk",
+                        "Medium Risk",
+                        "Low Risk",
+                    ],
+                )
             )
 
         with f2:
 
-            role_filter = st.selectbox(
-                "Job Role",
+            role_filter = (
+                st.selectbox(
+                    "Job Role",
 
-                [
-                    "All",
+                    [
+                        "All",
 
-                    *sorted(
-                        results[
-                            "JobRole"
-                        ]
-                        .astype(str)
-                        .unique()
+                        *sorted(
+                            results[
+                                "JobRole"
+                            ]
+                            .astype(str)
+                            .unique()
+                        ),
+                    ],
+
+                    key=(
+                        "employee_role"
                     ),
-                ],
-
-                key="employee_role",
+                )
             )
 
         with f3:
 
-            employee_search = st.text_input(
-                "Search Employee ID",
+            employee_search = (
+                st.text_input(
+                    "Search Employee ID",
 
-                placeholder="Example: 10004",
+                    placeholder=(
+                        "Example: 10004"
+                    ),
+                )
             )
 
         filtered = (
@@ -3493,7 +3759,8 @@ elif page == "👥  Employee List":
                 ]
                 .astype(str)
                 .str.contains(
-                    employee_search.strip(),
+                    employee_search
+                    .strip(),
 
                     case=False,
 
@@ -3570,12 +3837,15 @@ elif page == "⚠️  Risk Profiles":
             "individual SHAP."
         )
 
-        left, right = st.columns(
-            [
-                1,
-                1.25,
-            ],
-            gap="large",
+        left, right = (
+            st.columns(
+                [
+                    1,
+                    1.25,
+                ],
+
+                gap="large",
+            )
         )
 
         with left:
@@ -3608,6 +3878,7 @@ elif page == "⚠️  Risk Profiles":
                         "OverTime"
                     )
                     .agg(
+
                         Employees=(
                             "EmployeeNumber",
                             "size",
@@ -3635,18 +3906,22 @@ elif page == "⚠️  Risk Profiles":
 
                     x="OverTime",
 
-                    y="Average Risk Score",
+                    y=(
+                        "Average Risk Score"
+                    ),
 
-                    text="Average Risk Score",
+                    text=(
+                        "Average Risk Score"
+                    ),
 
                     color="OverTime",
 
                     color_discrete_map={
                         "Yes":
-                            "#ef6b66",
+                            "#ef3d4f",
 
                         "No":
-                            "#62b99f",
+                            "#2dae61",
                     },
 
                     hover_data={
@@ -3660,7 +3935,9 @@ elif page == "⚠️  Risk Profiles":
                         "%{text:.1f}%"
                     ),
 
-                    textposition="outside",
+                    textposition=(
+                        "outside"
+                    ),
                 )
 
                 figure.update_yaxes(
@@ -3705,13 +3982,12 @@ elif page == "🛠️  Interventions":
         """
     )
 
-    (
-        c1,
-        c2,
-        c3,
-    ) = st.columns(
-        3,
-        gap="large",
+    c1, c2, c3 = (
+        st.columns(
+            3,
+
+            gap="large",
+        )
     )
 
     with c1:
@@ -3889,6 +4165,7 @@ elif page == "🛠️  Interventions":
                 ]
                 .rename(
                     columns={
+
                         "EmployeeNumber":
                             "Employee ID",
 
@@ -3904,46 +4181,51 @@ elif page == "🛠️  Interventions":
                 )
             )
 
-            edited = st.data_editor(
-                queue_view,
+            edited = (
+                st.data_editor(
+                    queue_view,
 
-                use_container_width=True,
+                    use_container_width=True,
 
-                hide_index=True,
+                    hide_index=True,
 
-                disabled=[
-                    "Employee ID",
-                    "Risk Score",
-                    "Risk Level",
-                    "Recommended Action",
-                ],
+                    disabled=[
+                        "Employee ID",
+                        "Risk Score",
+                        "Risk Level",
+                        "Recommended Action",
+                    ],
 
-                column_config={
-                    "Risk Score":
-                        st.column_config.ProgressColumn(
-                            "Risk Score",
+                    column_config={
 
-                            min_value=0,
+                        "Risk Score":
+                            st.column_config.ProgressColumn(
 
-                            max_value=100,
+                                "Risk Score",
 
-                            format="%.2f%%",
-                        ),
+                                min_value=0,
 
-                    "HR Status":
-                        st.column_config.SelectboxColumn(
-                            "HR Status",
+                                max_value=100,
 
-                            options=[
-                                "Not Reviewed",
-                                "Review Scheduled",
-                                "Follow-up in Progress",
-                                "Follow-up Completed",
-                            ],
+                                format="%.2f%%",
+                            ),
 
-                            required=True,
-                        ),
-                },
+                        "HR Status":
+                            st.column_config.SelectboxColumn(
+
+                                "HR Status",
+
+                                options=[
+                                    "Not Reviewed",
+                                    "Review Scheduled",
+                                    "Follow-up in Progress",
+                                    "Follow-up Completed",
+                                ],
+
+                                required=True,
+                            ),
+                    },
+                )
             )
 
             for (
@@ -3959,9 +4241,11 @@ elif page == "🛠️  Interventions":
                             "Employee ID"
                         ]
                     )
-                ] = row[
-                    "HR Status"
-                ]
+                ] = (
+                    row[
+                        "HR Status"
+                    ]
+                )
 
             download_button(
                 edited,
@@ -3991,12 +4275,15 @@ elif page == "📤  Upload Data":
         """
     )
 
-    left, right = st.columns(
-        [
-            1.45,
-            1,
-        ],
-        gap="large",
+    left, right = (
+        st.columns(
+            [
+                1.45,
+                1,
+            ],
+
+            gap="large",
+        )
     )
 
     with left:
@@ -4013,16 +4300,12 @@ elif page == "📤  Upload Data":
             f"""
             - **{len(required_columns)}**
               required raw columns;
-
             - **{len(selected_features)}**
               final model features;
-
             - two engineered features are
               created automatically;
-
             - SMOTE is applied during
               training only;
-
             - `EmployeeNumber` is used
               only as Employee ID.
             """
@@ -4052,12 +4335,9 @@ elif page == "📤  Upload Data":
             ]
         )
 
-        (
-            q1,
-            q2,
-            q3,
-            q4,
-        ) = st.columns(4)
+        q1, q2, q3, q4 = (
+            st.columns(4)
+        )
 
         q1.metric(
             "Rows Loaded",
@@ -4141,12 +4421,9 @@ elif page == "ℹ️  About":
         """
     )
 
-    (
-        m1,
-        m2,
-        m3,
-        m4,
-    ) = st.columns(4)
+    m1, m2, m3, m4 = (
+        st.columns(4)
+    )
 
     m1.metric(
         "Test F2 Score",
@@ -4179,18 +4456,12 @@ elif page == "ℹ️  About":
         ### Model Configuration
 
         - **Model:** {model_name}
-
-        - **Sampling:** SMOTE 0.6 during training only
-
+        - **Sampling:** SMOTE 0.6 
         - **Low Risk:** probability < {low_medium_cutoff:.0%}
-
         - **Medium Risk:** {low_medium_cutoff:.0%}
           ≤ probability < {medium_high_cutoff:.0%}
-
         - **High Risk:** probability ≥ {medium_high_cutoff:.0%}
-
-        - **Prediction purpose:** Early warning
-          and HR decision support tool
+        - **Prediction purpose:** Early warning and HR decision support tool
         """
     )
 
