@@ -993,7 +993,7 @@ def clean_plot(
 
         font=dict(
             family="Arial",
-            color="#24324A",
+            color="#1f344d",
         ),
 
         legend_title_text="",
@@ -1945,7 +1945,7 @@ st.html(
     --green-soft:#e3f3ee;
 
     --text:#18304b;
-    --muted:#74849a;
+    --muted:#56697f;
 
     --border:#e1e8f0;
     --background:#f7f9fc;
@@ -2253,7 +2253,7 @@ st.html(
 .metric-label {
 
     color:
-        #4e6075;
+        #3f5269;
 
     font-size:
         0.82rem;
@@ -2464,7 +2464,7 @@ st.html(
                 block;
 
             color:
-                #7a879b;
+                #586b80;
 
             font-size:
                 0.68rem;
@@ -2473,7 +2473,7 @@ st.html(
         .signal-high {
 
             color:
-                var(--red);
+                #c7433f;
 
             text-align:
                 right;
@@ -2482,7 +2482,7 @@ st.html(
         .signal-medium {
 
             color:
-                var(--orange);
+                #a96910;
 
             text-align:
                 right;
@@ -2491,7 +2491,7 @@ st.html(
         .signal-low {
 
             color:
-                var(--green);
+                #2f806a;
 
             text-align:
                 right;
@@ -2788,6 +2788,178 @@ st.html(
         }
 
 
+        /* ==================================================
+           TEXT CONTRAST AND ACTION CONTROLS
+           ================================================== */
+
+        div[data-testid="stAlert"] {
+
+            border:
+                1px solid
+                #c7d3df;
+
+            box-shadow:
+                0
+                3px
+                12px
+                rgba(
+                    35,
+                    63,
+                    92,
+                    0.04
+                );
+        }
+
+        div[data-testid="stAlert"] p,
+        div[data-testid="stAlert"] li,
+        div[data-testid="stAlert"] span {
+
+            color:
+                #263b53 !important;
+
+            font-weight:
+                600;
+        }
+
+        div[data-testid="stMetric"] {
+
+            background:
+                #ffffff;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                12px;
+
+            padding:
+                0.85rem
+                0.95rem;
+        }
+
+        div[data-testid="stMetricLabel"] p,
+        label[data-testid="stMetricLabel"] p {
+
+            color:
+                #40546b !important;
+
+            font-weight:
+                750 !important;
+        }
+
+        div[data-testid="stMetricValue"] {
+
+            color:
+                #18304b !important;
+
+            font-weight:
+                800 !important;
+        }
+
+        div[data-testid="stMetricDelta"] {
+
+            color:
+                #40546b !important;
+        }
+
+        div[data-testid="stCaptionContainer"] p,
+        [data-testid="stCaptionContainer"] {
+
+            color:
+                #52667c !important;
+        }
+
+        div[data-testid="stDownloadButton"] > button,
+        div[data-testid="stFileUploader"] button {
+
+            background:
+                #ffffff !important;
+
+            color:
+                #18304b !important;
+
+            border:
+                1px solid
+                #91a4b8 !important;
+
+            font-weight:
+                750 !important;
+
+            box-shadow:
+                0
+                3px
+                10px
+                rgba(
+                    35,
+                    63,
+                    92,
+                    0.05
+                ) !important;
+        }
+
+        div[data-testid="stDownloadButton"] > button *,
+        div[data-testid="stFileUploader"] button * {
+
+            color:
+                #18304b !important;
+
+            fill:
+                #18304b !important;
+        }
+
+        div[data-testid="stDownloadButton"] > button:hover,
+        div[data-testid="stFileUploader"] button:hover {
+
+            background:
+                #edf3f8 !important;
+
+            color:
+                #102a43 !important;
+
+            border-color:
+                #58718a !important;
+        }
+
+        div[data-testid="stFileUploaderDropzone"] {
+
+            background:
+                #ffffff;
+
+            border-color:
+                #a6b6c6;
+        }
+
+        div[data-testid="stFileUploaderDropzone"] p,
+        div[data-testid="stFileUploaderDropzone"] small,
+        div[data-testid="stFileUploaderDropzone"] span {
+
+            color:
+                #40546b !important;
+        }
+
+        main div[data-testid="stMarkdownContainer"] p,
+        main div[data-testid="stMarkdownContainer"] li {
+
+            color:
+                #30465e;
+        }
+
+        .intervention h3 {
+
+            color:
+                #18304b;
+        }
+
+        .intervention li {
+
+            color:
+                #30465e;
+
+            line-height:
+                1.55;
+        }
+
         header[data-testid="stHeader"] {
 
             background:
@@ -3034,7 +3206,6 @@ if page == "🏠  Overview":
                   Job Level;
                 - Top 10 Priority Employees;
                 - Employee Detail View;
-                - observed High-Risk Profile Signals;
                 - Monitoring Action Queue.
                 """
             )
@@ -3319,6 +3490,11 @@ if page == "🏠  Overview":
 
                     textinfo="percent",
 
+                    textfont=dict(
+                        color="#ffffff",
+                        size=13,
+                    ),
+
                     marker=dict(
                         line=dict(
                             color='#ffffff',
@@ -3400,12 +3576,6 @@ if page == "🏠  Overview":
                             color=soft_role_colors[-len(role_data):],
                             line=dict(width=0),
                         ),
-                        text=[
-                            f"{value:.1f}%"
-                            for value in role_data["Average Risk Score"]
-                        ],
-                        textposition="outside",
-                        cliponaxis=False,
                         customdata=np.stack(
                             [
                                 role_data["Employees"],
@@ -3425,29 +3595,78 @@ if page == "🏠  Overview":
                     )
                 )
 
-                max_role_risk = float(role_data["Average Risk Score"].max())
+                max_role_risk = float(
+                    role_data[
+                        "Average Risk Score"
+                    ].max()
+                )
+
+                role_axis_max = max(
+                    max_role_risk,
+                    1.0,
+                )
+
+                role_label_offset = (
+                    role_axis_max
+                    * 0.025
+                )
+
+                role_label_positions = (
+                    role_data[
+                        "Average Risk Score"
+                    ]
+                    .clip(
+                        lower=(
+                            role_label_offset
+                        )
+                    )
+                )
+
+                figure.add_trace(
+                    go.Scatter(
+                        x=role_label_positions,
+                        y=role_data["JobRole"],
+                        mode="text",
+                        text=[
+                            f"{value:.1f}%"
+                            for value in role_data[
+                                "Average Risk Score"
+                            ]
+                        ],
+                        textposition="middle right",
+                        textfont=dict(
+                            color="#263b53",
+                            size=12,
+                        ),
+                        hoverinfo="skip",
+                        showlegend=False,
+                        cliponaxis=False,
+                    )
+                )
 
                 figure.update_layout(
                     height=360,
-                    margin=dict(l=10, r=45, t=10, b=35),
+                    margin=dict(l=10, r=55, t=10, b=35),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     showlegend=False,
-                    font=dict(family="Arial", color="#526178", size=12),
+                    font=dict(family="Arial", color="#263b53", size=12),
                     xaxis=dict(
                         title="Average Risk Score",
                         ticksuffix="%",
-                        range=[0, max_role_risk * 1.20],
+                        range=[0, role_axis_max * 1.25],
                         showgrid=True,
-                        gridcolor="#edf1f5",
+                        gridcolor="#e3e9f0",
                         zeroline=False,
                         fixedrange=True,
+                        tickfont=dict(color="#344a62"),
+                        title_font=dict(color="#263b53"),
                     ),
                     yaxis=dict(
                         title="",
                         showgrid=False,
                         fixedrange=True,
-                        tickfont=dict(size=11, color="#43546a"),
+                        tickfont=dict(size=11, color="#263b53"),
                     ),
                     bargap=0.42,
                 )
@@ -3517,6 +3736,13 @@ if page == "🏠  Overview":
                     textposition=(
                         "outside"
                     ),
+
+                    textfont=dict(
+                        color="#263b53",
+                        size=12,
+                    ),
+
+                    cliponaxis=False,
                 )
 
                 figure.update_layout(
@@ -3573,52 +3799,19 @@ if page == "🏠  Overview":
                     },
                 )
 
-        table_column, signal_column = (
-            st.columns(
-                [
-                    1.7,
-                    1,
-                ],
+        with st.container(
+            border=True
+        ):
 
-                gap="large",
+            st.subheader(
+                "Top 10 Priority Employees"
             )
-        )
 
-        with table_column:
+            prediction_table(
+                filtered,
 
-            with st.container(
-                border=True
-            ):
-
-                st.subheader(
-                    "Top 10 Priority Employees"
-                )
-
-                prediction_table(
-                    filtered,
-
-                    limit=10,
-                )
-
-        with signal_column:
-
-            with st.container(
-                border=True
-            ):
-
-                st.subheader(
-                    "Observed High-Risk Profile Signals"
-                )
-
-                st.caption(
-                    "Descriptive patterns among "
-                    "High Risk employees. "
-                    "These are not causal claims."
-                )
-
-                signal_panel(
-                    filtered
-                )
+                limit=10,
+            )
 
         st.caption(
             f"Low Risk < "
@@ -3938,6 +4131,13 @@ elif page == "⚠️  Risk Profiles":
                     textposition=(
                         "outside"
                     ),
+
+                    textfont=dict(
+                        color="#263b53",
+                        size=12,
+                    ),
+
+                    cliponaxis=False,
                 )
 
                 figure.update_yaxes(
