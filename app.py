@@ -2966,13 +2966,101 @@ st.html(
                 transparent;
         }
 
+        /* Keep Streamlit's sidebar collapse/reopen control available.
+           Hiding the entire toolbar can also hide the button used to
+           reopen a collapsed sidebar. */
         div[data-testid="stToolbar"] {
 
             visibility:
-                hidden;
+                visible !important;
 
             height:
-                0;
+                auto !important;
+        }
+
+        div[data-testid="stToolbarActions"] {
+
+            visibility:
+                hidden !important;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"],
+        button[data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarCollapsedControl"] button,
+        [data-testid="stSidebarCollapseButton"] button {
+
+            visibility:
+                visible !important;
+
+            opacity:
+                1 !important;
+
+            pointer-events:
+                auto !important;
+
+            z-index:
+                1000000 !important;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"],
+        [data-testid="stSidebarCollapsedControl"] button {
+
+            position:
+                fixed !important;
+
+            top:
+                0.75rem !important;
+
+            left:
+                0.75rem !important;
+
+            width:
+                42px !important;
+
+            height:
+                42px !important;
+
+            min-width:
+                42px !important;
+
+            border-radius:
+                10px !important;
+
+            background:
+                var(--navy) !important;
+
+            color:
+                #ffffff !important;
+
+            border:
+                1px solid
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.28
+                ) !important;
+
+            box-shadow:
+                0
+                6px
+                18px
+                rgba(
+                    17,
+                    38,
+                    74,
+                    0.20
+                ) !important;
+        }
+
+        button[data-testid="stSidebarCollapsedControl"] *,
+        [data-testid="stSidebarCollapsedControl"] button * {
+
+            color:
+                #ffffff !important;
+
+            fill:
+                #ffffff !important;
         }
 
         #MainMenu,
@@ -3748,6 +3836,8 @@ if page == "🏠  Overview":
                 figure.update_layout(
                     coloraxis_showscale=False,
 
+                    showlegend=False,
+
                     xaxis_title=(
                         "Job Level"
                     ),
@@ -3774,13 +3864,52 @@ if page == "🏠  Overview":
                             ]
                             .tolist()
                         ],
+
+                        tickfont=dict(
+                            color="#263b53",
+                            size=12,
+                        ),
+
+                        title_font=dict(
+                            color="#263b53",
+                            size=14,
+                        ),
+
+                        linecolor="#8ea0b2",
+
+                        gridcolor="#e3e9f0",
+
+                        zeroline=False,
                     ),
-                )
 
-                figure.update_yaxes(
-                    ticksuffix="%",
+                    yaxis=dict(
+                        ticksuffix="%",
 
-                    rangemode="tozero",
+                        rangemode="tozero",
+
+                        tickfont=dict(
+                            color="#263b53",
+                            size=12,
+                        ),
+
+                        title_font=dict(
+                            color="#263b53",
+                            size=14,
+                        ),
+
+                        gridcolor="#d8e0e8",
+
+                        linecolor="#8ea0b2",
+
+                        zeroline=False,
+                    ),
+
+                    legend=dict(
+                        font=dict(
+                            color="#263b53",
+                            size=12,
+                        )
+                    ),
                 )
 
                 clean_plot(
@@ -4140,10 +4269,54 @@ elif page == "⚠️  Risk Profiles":
                     cliponaxis=False,
                 )
 
-                figure.update_yaxes(
-                    ticksuffix="%",
+                figure.update_layout(
+                    showlegend=False,
 
-                    rangemode="tozero",
+                    xaxis=dict(
+                        title=dict(
+                            text="OverTime",
+                            font=dict(
+                                color="#263b53",
+                                size=14,
+                            ),
+                        ),
+
+                        tickfont=dict(
+                            color="#263b53",
+                            size=12,
+                        ),
+
+                        linecolor="#8ea0b2",
+
+                        gridcolor="#e3e9f0",
+
+                        zeroline=False,
+                    ),
+
+                    yaxis=dict(
+                        title=dict(
+                            text="Average Risk Score",
+                            font=dict(
+                                color="#263b53",
+                                size=14,
+                            ),
+                        ),
+
+                        ticksuffix="%",
+
+                        rangemode="tozero",
+
+                        tickfont=dict(
+                            color="#263b53",
+                            size=12,
+                        ),
+
+                        linecolor="#8ea0b2",
+
+                        gridcolor="#d8e0e8",
+
+                        zeroline=False,
+                    ),
                 )
 
                 clean_plot(
